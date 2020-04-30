@@ -66,7 +66,7 @@ def run(tasks, forced=None, forced_all=False, forced_all_upstream=False, confirm
         kwargs: keywords to pass to luigi.build
 
     """
-    if not isinstance(tasks, (list,)):
+    if not isinstance(tasks, (list, tuple)):
         tasks = [tasks]
 
     if forced_all:

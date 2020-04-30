@@ -1,5 +1,6 @@
 import luigi
 import luigi.tools.deps
+import collections
 
 import d6tcollect
 
@@ -97,14 +98,8 @@ class TaskData(luigi.Task):
             input = self.input()[task]
         else:
             input = self.input()
-        if isinstance(input, tuple):
-            data = [o.load() for o in input]
-        elif isinstance(input, dict):
-            keys = input.keys() if keys is None else keys
-            data = {k: v.load(cached) for k, v in input.items() if k in keys}
-            data = list(data.values())
-        else:
-            data = input.load()
+
+        data = _inputLoad(keys=keys, input=input, cached=cached)
         return data
 
     def outputLoad(self, keys=None, as_dict=False, cached=False):
@@ -178,6 +173,46 @@ class TaskData(luigi.Task):
         Preview push files to data repo
         """
         return _taskpipeoperation(self,'push_preview', **kwargs)
+
+
+def is_iterable(arg):
+    """
+    Returns whether an argument is an iterable but not a string
+    From stackoverflow: "how to tell a varaiable is iterable but not a string"
+    Args:
+        arg: some variable to be tested
+    Returns:
+        (bool)
+    """
+    return (
+            isinstance(arg, collections.Iterable)
+            and not isinstance(arg, str)
+    )
+
+
+def make_iterable(arg):
+    """
+    Makes arg into an iterable if it isn't already (note that strings are ignored and treated as non-iterable)
+    """
+    return arg if is_iterable(arg) else (arg,)
+
+
+def _inputLoad(keys=None, input=None, cached=False):
+    if isinstance(input, tuple):
+        data = []
+        for o in input:
+            data.extend(make_iterable(_inputLoad(keys=None, input=o, cached=cached)))
+    elif isinstance(input, dict):
+        # TODO: This doesn't work recursively like the other part
+        keys = input.keys() if keys is None else keys
+        data = {k: v.load(cached) for k, v in input.items() if k in keys}
+        # TODO: Why flatten the structure of the input we've been given?  We could leave it nested same as output 
+        #  dict.  This sort of implies we're not really keywording for our interface, just for putting it to disk
+        data = list(data.values())
+    else:
+        data = input.load()
+    return data
+
 
 
 class TaskCache(TaskData):
